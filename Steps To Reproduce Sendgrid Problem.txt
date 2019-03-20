@@ -1,0 +1,71 @@
+Steps to Reproduce
+-------------------
+1) In Visual Studio 2017 create a new ASP.NET Web Application Project. Select MVC as the project template. Accept defaults for anything else during the project creation. (NOTE: You will obviously need to have MVC support installed with your Visual Studio instance).
+
+2) Select Tools->NUGet Package Manager->Manage NUGet Packages for Solution from the menu. Click the Updates tab and update all packages. Perform updates until there are no package updates remaining. But don't exit NUGet.
+
+3) Click the Browse tab and search for the Sendgrid package. Install it to your project. Then exit Nuget without installing further updates.  Build and run the project in order to confirm that you have a working project.
+
+4) In Solution Explorer right-click the "Models" folder and select "Add Class". Create a model class that can be used in a Contact Us form. For Example:
+
+   public class ContactUsModel
+    {
+        public string PersonName { get; set; }
+        public string PersonEmail { get; set; }
+        public string EmailSubject { get; set; }
+        public string EmailMessage { get; set; }
+
+    }
+
+5) Under Views/Home delete all views that were created by default.
+
+6) Under Controllers, double click to edit the HomeController. Remove all methods except Index().
+
+7) At the top add a "using" statement to include the namespace for your new model from step 4. Also add the following "using" statements to support the Sendgrid sample code. Example:
+
+	using SendgridMVCDemo.Models; // my model's namespace
+	using System.Threading.Tasks;
+	using SendGrid;
+	using SendGrid.Helpers.Mail;
+	 
+
+7) Right-click the Index() action and select "Add View...". In the Add View dialog, change Template to "Edit" and under Model class select the model from step 4. Then click "Add" (accepting defaults for the rest). This will create a new View under Views/Home for your Index() action.
+
+8) Edit the Index() method to create a new empty model instance and pass it to the view. Example:
+
+        public ActionResult Index()
+        {
+            return View(new ContactUsModel());
+        }
+
+9) The above method is for an HTTP GET, so we need to add another method to handle the HTTP POST. That is where we will call Execute() from the sample code. Example:
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Index(ContactUsModel formData)
+        {
+            Execute().Wait();
+            // re-display the web page
+            return View(formData);
+        }
+
+10) Copy and paste the Execute()  method from the sample C# code into your HomeController class. Modify it to accept your model from step 4 as a parameter when calling it. This allows you to use the data entered into the form by a user.
+
+11) You can either add your Sendgrid API Key to your environment variable as recommended, or to eliminate even that as a possible part of this bug, just hard-code it into your execute function along with the email addresses you intend to use for TO.  Example:
+
+        static async Task Execute(ContactUsModel formData)
+        {
+            var apiKey = "<<YOUR KEY GOES HERE>>";
+            var client = new SendGridClient(apiKey);
+            var from = new EmailAddress(formData.PersonEmail, formData.PersonName);
+            var subject = formData.EmailSubject;
+            var to = new EmailAddress("<<YOUR TO EMAIL ADDRESS>>", "Your Name");
+            var plainTextContent = formData.EmailMessage;
+            var htmlContent = formData.EmailMessage;
+            var msg = MailHelper.CreateSingleEmail(from, to, subject, plainTextContent, htmlContent);
+            var response = await client.SendEmailAsync(msg);
+        }
+
+12) Set a breakpoint on the last line of Execute() and build and run your project in the debugger to test it. When the debug breakpoint is hit, press F10 to step over that one instruction.
+
+RESULT: Your web application will spin and that instruction will never return. However, SendGrid will deliver your email. So the send happens, it just hangs the application.
